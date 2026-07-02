@@ -1,12 +1,18 @@
 .*
 !.gitignore
 !.gitattributes
-!.eleventy.js
-
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
 _site/
+
 node_modules/
-packages/cli/dist/
-packages/css/dist/
 
 # Logs
 npm-debug.log*
+dist/
+templates/
+site/dist/
+site/public/assets/js/
+site/public/fragments/

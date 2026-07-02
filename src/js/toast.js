@@ -13,17 +13,38 @@
     if (toasterElement.dataset.toasterInitialized) return;
     toaster = toasterElement;
 
-    toaster.addEventListener('mouseenter', pauseAllTimeouts);
-    toaster.addEventListener('mouseleave', resumeAllTimeouts);
-    toaster.addEventListener('click', (event) => {
+    const handleClick = (event) => {
       const actionLink = event.target.closest('.toast footer a');
       const actionButton = event.target.closest('.toast footer button');
       if (actionLink || actionButton) {
         closeToast(event.target.closest('.toast'));
       }
-    });
+    };
+
+    toaster.addEventListener('mouseenter', pauseAllTimeouts);
+    toaster.addEventListener('mouseleave', resumeAllTimeouts);
+    toaster.addEventListener('click', handleClick);
+
+    toasterElement.toast = (config = {}) => {
+      const toastElement = createToast(config);
+      toasterElement.appendChild(toastElement);
+      initToast(toastElement);
+      return toastElement;
+    };
+    toasterElement.closeAll = () => {
+      toasterElement.querySelectorAll('.toast:not([aria-hidden="true"])').forEach(closeToast);
+    };
 
     toaster.querySelectorAll('.toast:not([data-toast-initialized])').forEach(initToast);
+    toaster._destroy = () => {
+      toaster.removeEventListener('mouseenter', pauseAllTimeouts);
+      toaster.removeEventListener('mouseleave', resumeAllTimeouts);
+      toaster.removeEventListener('click', handleClick);
+      toaster.querySelectorAll('.toast[data-toast-initialized]').forEach(toast => toast._destroy?.());
+      delete toaster.toast;
+      delete toaster.closeAll;
+      if (toaster === toasterElement) toaster = null;
+    };
     toaster.dataset.toasterInitialized = 'true';
     toaster.dispatchEvent(new CustomEvent('basecoat:initialized'));
   }
@@ -35,13 +56,13 @@
     const timeoutDuration = duration !== -1
       ? duration || (element.dataset.category === 'error' ? 5000 : 3000)
       : -1;
-    
+
     const state = {
       remainingTime: timeoutDuration,
       timeoutId: null,
       startTime: null,
     };
-    
+
     if (timeoutDuration !== -1) {
       if (isPaused) {
         state.timeoutId = null;
@@ -51,18 +72,24 @@
       }
     }
     toasts.set(element, state);
-    
+
+    element.close = () => closeToast(element);
+    element._destroy = () => {
+      clearTimeout(state.timeoutId);
+      toasts.delete(element);
+      delete element.close;
+    };
     element.dataset.toastInitialized = 'true';
   }
 
   function pauseAllTimeouts() {
-    if (isPaused) return;
+    if (isPaused || !toaster) return;
 
     isPaused = true;
-    
+
     toaster.querySelectorAll('.toast:not([aria-hidden="true"])').forEach(element => {
       if (!toasts.has(element)) return;
-      
+
       const state = toasts.get(element);
       if (state.timeoutId) {
         clearTimeout(state.timeoutId);
@@ -73,7 +100,7 @@
   }
 
   function resumeAllTimeouts() {
-    if (!isPaused) return;
+    if (!isPaused || !toaster) return;
 
     isPaused = false;
 
@@ -93,26 +120,15 @@
   }
 
   function closeToast(element) {
-    if (!toasts.has(element)) return;
+    if (!element || !toasts.has(element)) return;
 
     const state = toasts.get(element);
     clearTimeout(state.timeoutId);
     toasts.delete(element);
-    
+
     if (element.contains(document.activeElement)) document.activeElement.blur();
     element.setAttribute('aria-hidden', 'true');
     element.addEventListener('transitionend', () => element.remove(), { once: true });
-  }
-
-  function executeAction(button, toast) {
-    const actionString = button.dataset.toastAction;
-    if (!actionString) return;
-    try {
-      const func = new Function('close', actionString);
-      func(() => closeToast(toast));
-    } catch (event) {
-      console.error('Error executing toast action:', event);
-    }
   }
 
   function createToast(config) {
@@ -135,7 +151,7 @@
         ? `<button type="button" class="btn" data-toast-action onclick="${action.onclick}">${action.label}</button>`
         : '';
     const cancelHtml = cancel
-      ? `<button type="button" class="btn-outline h-6 text-xs px-2.5 rounded-sm" data-toast-cancel onclick="${cancel?.onclick}">${cancel.label}</button>`
+      ? `<button type="button" class="btn h-6 text-xs px-2.5 rounded-sm" data-variant="outline" data-toast-cancel onclick="${cancel?.onclick || ''}">${cancel.label}</button>`
       : '';
 
     const footerHtml = actionHtml || cancelHtml ? `<footer>${actionHtml}${cancelHtml}</footer>` : '';
@@ -155,7 +171,6 @@
             ${descriptionHtml}
           </section>
           ${footerHtml}
-          </div>
         </div>
       </div>
     `;
@@ -163,16 +178,6 @@
     template.innerHTML = html.trim();
     return template.content.firstChild;
   }
-
-  document.addEventListener('basecoat:toast', (event) => {
-    if (!toaster) {
-      console.error('Cannot create toast: toaster container not found on page.');
-      return;
-    }
-    const config = event.detail?.config || {};
-    const toastElement = createToast(config);
-    toaster.appendChild(toastElement);
-  });
 
   if (window.basecoat) {
     window.basecoat.register('toaster', '#toaster:not([data-toaster-initialized])', initToaster);

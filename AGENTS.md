@@ -1,112 +1,99 @@
-# Basecoat – Agent Guide
+# Agent Rules
 
-## What is Basecoat?
+## Communication
+- Keep answers concise, technical, and to the point.
+- Do not use filler or glazing openers.
+- Keep explanations MECE: separate facts, decisions, risks, and open questions.
+- If scope is partial, state exactly what was not included.
+- Challenge incorrect assumptions with evidence from code, docs, or upstream sources.
 
-Basecoat is a vanilla JavaScript/HTML/CSS port of shadcn/ui components. It reuses shadcn/ui's design patterns and Tailwind CSS classes while maintaining semantic HTML, native browser elements, and full accessibility (ARIA attributes, proper hierarchies, keyboard navigation). The goal is to provide shadcn-quality components without React dependencies.
+## Project Intent
+- Basecoat is a Tailwind CSS, vanilla HTML, CSS, and JavaScript implementation of shadcn/ui's visual language for non-React stacks.
+- Basecoat maps upstream shadcn/ui concepts onto simpler semantic markup; it is not a React, Radix, Base UI, `cn-*`, or `data-slot` DOM port.
+- Prefer the browser platform: native elements, semantic HTML, CSS state selectors, and small vanilla JS only when needed.
 
-## Quickstart
+## Source Boundaries
+- Do not hand-edit build outputs:
+  - `dist/**`
+  - `templates/**`
+  - `site/dist/**`
+  - `site/public/assets/js/**`
+  - `site/public/fragments/**`
+- Generated source entrypoints such as `src/css/basecoat-vega.css` are committed, but must be regenerated through `scripts/generate-css-entrypoints.js` or build scripts, not manually maintained.
 
-- Install deps: `npm i`
-- Dev docs server: `npm run docs:dev`
-- Build CSS/JS: `npm run build`
-- Build static docs: `npm run docs:build`
+## Public API and Markup
+- Keep public component APIs small: usually one root class, semantic child elements, documented ARIA/data attributes only when needed, and minimal JS for behavior.
+- Avoid required child classes when meaningful markup can identify children: `input`, `textarea`, `select`, `button`, `a`, `label`, `fieldset`, `legend`, `header`, `section`, `footer`, `svg`, `kbd`, `hr`.
+- Add new child classes, wrappers, `data-*` attributes, macro arguments, or public selectors only as intentional API.
+- Do not add roles for styling; ARIA must describe behavior or accessibility state.
+- Prefer intentional divergence over awkward imitation when upstream markup does not map cleanly to Basecoat.
 
-## What to edit (and what not)
+## Accessibility
+- Start with the native element that matches the control.
+- Use `<fieldset>` and `<legend>` for grouped form controls when appropriate.
+- Use native `<dialog>` where possible.
+- Keep composite-widget keyboard behavior predictable: skip disabled items, respect orientation, and handle Escape/Enter/Space according to role.
+- Disabled custom items must be skipped by pointer and keyboard interactions.
+- Use logical CSS utilities/properties for RTL; flip only icons whose meaning is directional.
 
-- Edit sources only:
-  - `src/css/basecoat.css` – All component CSS classes (Tailwind + custom)
-  - `src/js/*.js` – Individual component JS files (kebab-case, ESM) + `basecoat.js` (component registry)
-  - `src/nunjucks/*.njk` and `src/jinja/*.html.jinja` – Component template macros
-  - `docs/src/components/*.njk` – Component documentation pages with examples
-  - `docs/src/_includes/` – Layout templates, partials, and navigation
-- Do not edit build outputs:
-  - `packages/*/dist` – built CSS/JS bundles
-  - `_site/` – generated docs site
+## CSS
+- Component CSS in `src/css/components/*.css` owns structure, layout primitives, accessibility selectors, and behavior hooks.
+- Style-pack CSS in `src/css/styles/*.css` owns visual choices: color, radius, shadow/ring, typography, spacing, variants, and state visuals.
+- Each style bundle must stand alone. Do not load Vega/default and then undo it in another style.
+- Avoid defensive resets that only compensate for another style pack.
+- Prefer Tailwind logical utilities (`ps`, `pe`, `ms`, `me`, `start`, `end`, `rounded-s`, `rounded-e`) over physical left/right utilities.
+- Prefer `border` for lines and separators.
+- Avoid `!important`; if unavoidable, keep the selector narrow and document why.
 
-## Project layout
+## JavaScript
+- JavaScript is behavior only; do not use JS to paper over CSS architecture issues.
+- Register JS components with `window.basecoat.register()` and make initialization idempotent with `data-*-initialized` flags.
+- Component init functions must return before attaching listeners or mutating DOM when the root already has its initialized flag.
+- Keep generated DOM minimal and aligned with documented HTML.
+- Prefer native browser APIs and events.
+- Keep scroll management scoped to component containers. Do not use `scrollIntoView()` when it can scroll the page unexpectedly.
+- Emit custom events only for meaningful integration points.
 
-- Workspaces: root npm workspace with publishable packages in `packages/*`.
-- Packages:
-  - `packages/css` – built CSS and JS bundles under `dist/`.
-  - `packages/cli` – CLI; distributed assets live under `dist/`.
-- Docs site: `docs/src` (Eleventy); output goes to `_site/`.
+## Upstream Migration
+- Always check the upstream shadcn/ui repo before changing a migrated component: `https://github.com/shadcn-ui/ui`.
+- Use a local copy of the upstream repo for migration work.
+- Review these upstream repo paths:
+  - components: `apps/v4/registry/bases/base/ui/`
+  - docs: `apps/v4/content/docs/components/`
+  - examples: `apps/v4/registry/bases/base/examples/`
+  - styles: `apps/v4/registry/styles/style-{vega,nova,maia,lyra,mira,luma,sera,rhea}.css`
+- Review Basecoat files in the same pass:
+  - component CSS: `src/css/components/<component>.css`
+  - style packs: `src/css/styles/{vega,nova,maia,lyra,mira,luma,sera,rhea}.css`
+  - JS: `src/js/<component>.js` when behavior changes
+  - templates: `src/templates/nunjucks/*.njk` and `src/templates/jinja/*.html.jinja` when markup changes
+  - docs: `site/src/docs/components/<component>.mdx`
+- Map upstream concepts, not implementation details. Do not port `cn-*` selectors directly.
+- Classify differences as `drift fixed`, `intentional`, or `deferred`.
 
-## Conventions
+## Docs
+- Docs are Basecoat API docs, not React docs.
+- Update docs when supported markup, variants, states, JS behavior, templates, or macros change.
+- Prefer concrete HTML examples over abstract composition trees.
+- Do not include React-only APIs such as `asChild`.
+- Do not add "Composition" sections unless they describe stable Basecoat markup.
+- Do not add API Reference sections for native/CSS-only components unless there is a real Basecoat API.
+- Structure component docs as: title and preview, `## Usage`, optional `### HTML structure` for stable markup requirements, optional `### JavaScript API` for components with Basecoat JS methods/events/options, then `## Examples`.
+- Keep `Usage` focused on the minimal working snippet and important Basecoat/upstream differences; put variants, states, RTL, and richer patterns under `Examples`.
+- Keep snippets minimal and aligned with current behavior.
+- In HTML snippets, keep text-only elements on one line, such as `<p>Text</p>`; use multiline formatting when the element contains child elements or when line length would hurt readability.
+- In HTML examples, keep icons as single-line `<svg ...>...</svg>` elements, keep simple text-only or inline-formatting elements on one line, and avoid blank separator lines between adjacent markup parts.
+- Document intentional differences from upstream near the relevant example.
 
-- ESM everywhere (`import`/`export`).
-- Prettier defaults (2 spaces; single quotes per file preference).
-- Filenames for assets: kebab-case (e.g., `dropdown-menu.js`, `basecoat.cdn.css`).
-- JS naming: `camelCase` for vars/functions; `PascalCase` for DOM classes and exported component names when applicable.
+## Validation
+- Run `npm run build` after source/package changes.
+- Run `npm run docs:build` after docs or docs asset changes.
+- Manually verify changed components in docs across light/dark mode, style packs, variants, RTL when supported, and relevant interaction states.
 
-## Design Principles
-
-- **Minimal code**: Prefer native HTML elements and browser behavior over JavaScript abstractions
-- **Accessibility-first**: Semantic HTML, proper ARIA attributes, keyboard navigation
-- **CSS patterns**:
-  - Use `border` for lines/separators (not `background` on `<hr>`)
-  - Use `:is()` and `:has()` for compact selectors
-  - Use `isolation: isolate` to contain z-index stacking contexts
-  - Use `data-*` attributes for styling states, `aria-*` for accessibility semantics
-- **Component patterns**:
-  - Dialog variants use wrapper classes (e.g., `.command-dialog` wraps `.command`)
-  - JavaScript components register with `window.basecoat.register()`
-  - Emit custom events for user actions (e.g., `command:select`)
-  - Filter disabled options (`aria-disabled="true"`) from all interactions
-- **When NOT to create a component**:
-  - If it's just composition of existing elements (users can do it with standard HTML/Tailwind)
-  - If behavior is fully native (e.g., fieldset, legend)
-
-## Adding new components
-
-Before creating a component, ask:
-1. Does shadcn/ui have it? → Port it
-2. Is it pure composition? → Document pattern, no component
-3. Does it need JS behavior? → Create component
-4. Is it just CSS? → Add to basecoat.css, document usage
-
-Examples:
-- Field/Fieldset: CSS-only patterns (no JS component)
-- Empty/Item/Input Group: Pure composition (docs only)
-- Command/Select: JS behavior required (full component)
-
-## Common tasks
-
-- Update a component's CSS/JS: Edit `src/css/basecoat.css` and/or `src/js/*.js`.
-- Update a component template: Edit `src/nunjucks/*.njk` and/or `src/jinja/*.html.jinja`.
-- Add a new component: Create JS, CSS, templates, and docs page under `docs/src/components/*.njk`.
-- Update navigation: Edit files in `docs/src/_includes/partials/`.
-
-## Testing
-
-No automated testing configured. User validates manually via the docs site (`npm run docs:dev`).
-
-## Commits and PRs
-
-- Commits: concise, imperative (≤72 chars), optional scope.
-  - Example: `select: prevent change event on init`.
-- PRs: include description, linked issues (e.g., `Closes #123`), and before/after screenshots or code snippets for visual/behavioral changes.
-- Keep PRs focused; update docs examples when components or APIs change.
-
-## Environment and tooling
-
-- Node 18+ recommended.
-- Eleventy config: `.eleventy.js`.
-- Tailwind via `@tailwindcss/cli` v4.
-- Build uses Tailwind CLI and `terser`; both are provided via devDependencies.
-
-## Git workflow
-
-- `.gitattributes` configures merge strategies for generated files
-- `docs/src/assets/styles.css` auto-resolves to incoming changes (regenerated by Tailwind)
-- Always run `npm run build` before publishing packages
-
-## Publishing packages
-
-1. Bump version in root `package.json`
-2. Run `npm run build` to generate dist files
-3. Run `npm publish --workspaces` to publish both packages
-
-## Package references
-
-- `packages/css` usage and details: see `packages/css/README.md`.
-- `packages/cli` usage and details: see `packages/cli/README.md`.
+## Change Management
+- Ask before removing intentional functionality or public API.
+- Preserve backward compatibility when the repo already depends on it, especially package exports and default `basecoat.css` behavior.
+- Keep generated outputs and docs consistent with source changes.
+- Remove stale comments/docs during refactors.
+- Keep commits focused and imperative.
+- Keep release-visible changes in `CHANGELOG.md` under `## [Unreleased]`; put backlog or incomplete work in `TODO.md` or the migration tracker.
